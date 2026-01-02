@@ -1,0 +1,24 @@
+{
+  "name": "Tarefas da Familia",
+  "short_name": "Tarefas",
+  "description": "App de tarefas domesticas para a familia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#E0E7FF",
+  "theme_color": "#8B5CF6",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
