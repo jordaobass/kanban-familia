@@ -14,10 +14,12 @@ import {
   getDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Task, TaskFormData, Score, ProfileName, TaskStatus, getWeekString } from '@/types';
+import { Task, TaskFormData, Score, ProfileName, TaskStatus, getWeekString, FamilyMember, DailyActivity } from '@/types';
 
 const TASKS_COLLECTION = 'tasks';
 const SCORES_COLLECTION = 'scores';
+const MEMBERS_COLLECTION = 'familyMembers';
+const ACTIVITIES_COLLECTION = 'activities';
 
 // Get current week in YYYY-WXX format
 const getCurrentWeek = (): string => {
@@ -64,7 +66,9 @@ export const createTask = async (taskData: TaskFormData, createdBy: string): Pro
 export const updateTaskStatus = async (
   taskId: string,
   status: TaskStatus,
-  completedBy?: ProfileName
+  completedBy?: ProfileName,
+  taskTitle?: string,
+  taskEmoji?: string
 ): Promise<void> => {
   const taskRef = doc(db, TASKS_COLLECTION, taskId);
 
@@ -77,6 +81,11 @@ export const updateTaskStatus = async (
 
     // Update score
     await updateScore(completedBy, taskId);
+
+    // Record activity for timeline
+    if (taskTitle && taskEmoji) {
+      await recordActivity(completedBy, taskId, taskTitle, taskEmoji);
+    }
   } else {
     await updateDoc(taskRef, {
       status,
@@ -198,4 +207,109 @@ export const getAllScores = async (): Promise<Score[]> => {
     scores.push({ id: doc.id, ...doc.data() } as Score);
   });
   return scores;
+};
+
+// Family Members Functions
+export const subscribeFamilyMembers = (callback: (members: FamilyMember[]) => void) => {
+  const q = query(collection(db, MEMBERS_COLLECTION));
+
+  return onSnapshot(q, (snapshot) => {
+    const members: FamilyMember[] = [];
+    snapshot.forEach((doc) => {
+      members.push({ id: doc.id, ...doc.data() } as FamilyMember);
+    });
+    callback(members);
+  });
+};
+
+export const createFamilyMember = async (data: {
+  name: string;
+  photoUrl?: string;
+  isChild: boolean;
+  color: string;
+}): Promise<string> => {
+  const docRef = await addDoc(collection(db, MEMBERS_COLLECTION), {
+    ...data,
+    createdAt: Timestamp.now(),
+  });
+  return docRef.id;
+};
+
+export const updateFamilyMember = async (
+  memberId: string,
+  data: {
+    name?: string;
+    photoUrl?: string;
+    isChild?: boolean;
+    color?: string;
+  }
+): Promise<void> => {
+  const memberRef = doc(db, MEMBERS_COLLECTION, memberId);
+  await updateDoc(memberRef, data);
+};
+
+export const deleteFamilyMember = async (memberId: string): Promise<void> => {
+  await deleteDoc(doc(db, MEMBERS_COLLECTION, memberId));
+};
+
+// Activities Functions (for timeline)
+export const recordActivity = async (
+  profile: ProfileName,
+  taskId: string,
+  taskTitle: string,
+  taskEmoji: string
+): Promise<void> => {
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+
+  await addDoc(collection(db, ACTIVITIES_COLLECTION), {
+    profile,
+    date: dateStr,
+    taskId,
+    taskTitle,
+    taskEmoji,
+    points: 1,
+    completedAt: Timestamp.now(),
+  });
+};
+
+export const subscribeActivities = (
+  profile: ProfileName,
+  startDate: string,
+  endDate: string,
+  callback: (activities: (DailyActivity & { profile: ProfileName })[]) => void
+) => {
+  const q = query(
+    collection(db, ACTIVITIES_COLLECTION),
+    where('profile', '==', profile),
+    where('date', '>=', startDate),
+    where('date', '<=', endDate)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const activities: (DailyActivity & { profile: ProfileName })[] = [];
+    snapshot.forEach((doc) => {
+      activities.push({ id: doc.id, ...doc.data() } as DailyActivity & { profile: ProfileName; id: string });
+    });
+    // Sort by completedAt descending
+    activities.sort((a, b) => b.completedAt.toMillis() - a.completedAt.toMillis());
+    callback(activities);
+  });
+};
+
+export const getActivitiesForDay = async (
+  profile: ProfileName,
+  date: string
+): Promise<DailyActivity[]> => {
+  const q = query(
+    collection(db, ACTIVITIES_COLLECTION),
+    where('profile', '==', profile),
+    where('date', '==', date)
+  );
+  const snapshot = await getDocs(q);
+  const activities: DailyActivity[] = [];
+  snapshot.forEach((doc) => {
+    activities.push({ ...doc.data() } as DailyActivity);
+  });
+  return activities;
 };

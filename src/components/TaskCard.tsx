@@ -98,10 +98,29 @@ export function TaskCard({ task, isDragging, onComplete }: TaskCardProps) {
             onComplete();
           }}
           onPointerDown={(e) => e.stopPropagation()}
-          className="flex-shrink-0 p-3 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white rounded-xl transition-all duration-200 hover:scale-110 active:scale-95 shadow-md"
+          className="
+            flex-shrink-0 relative group
+            w-14 h-14 rounded-full
+            bg-gradient-to-br from-green-400 via-emerald-500 to-green-600
+            hover:from-green-500 hover:via-emerald-600 hover:to-green-700
+            active:scale-90
+            transition-all duration-200
+            shadow-lg hover:shadow-xl hover:shadow-green-300/50
+            flex items-center justify-center
+            animate-pulse-slow
+          "
           title="Finalizar tarefa"
         >
-          <span className="text-xl">✓</span>
+          {/* Glow ring */}
+          <span className="absolute inset-0 rounded-full bg-green-400 opacity-0 group-hover:opacity-30 group-hover:animate-ping" />
+
+          {/* Inner circle */}
+          <span className="absolute inset-1 rounded-full bg-gradient-to-br from-white/30 to-transparent" />
+
+          {/* Icon */}
+          <span className="text-2xl text-white drop-shadow-md relative z-10 group-hover:scale-125 transition-transform">
+            ✨
+          </span>
         </button>
       )}
     </div>

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useScores } from '@/hooks/useScores';
 import { LoadingSpinner } from './LoadingSpinner';
+import { ActivityTimeline } from './ActivityTimeline';
 import { getWeekDates, getWeeksOfMonth, getWeekString } from '@/types';
 
 const MONTHS = [
@@ -14,6 +15,7 @@ export function ScoreBoard() {
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [showTimeline, setShowTimeline] = useState(false);
 
   const weeksInMonth = getWeeksOfMonth(selectedYear, selectedMonth);
   const currentWeekStr = getWeekString(now);
@@ -113,6 +115,13 @@ export function ScoreBoard() {
           🏆 Placar da Semana 🏆
         </h2>
         <p className="text-gray-600">Quem completou mais tarefas?</p>
+        <button
+          onClick={() => setShowTimeline(true)}
+          className="mt-3 px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-200 flex items-center gap-2 mx-auto"
+        >
+          <span className="text-lg">📊</span>
+          Ver Timeline
+        </button>
       </div>
 
       {/* Month/Week Selector */}
@@ -238,6 +247,13 @@ export function ScoreBoard() {
           <p>Complete tarefas para ganhar pontos.</p>
         </div>
       )}
+
+      {/* Activity Timeline Modal */}
+      <ActivityTimeline
+        isOpen={showTimeline}
+        onClose={() => setShowTimeline(false)}
+        weekString={selectedWeek}
+      />
     </div>
   );
 }

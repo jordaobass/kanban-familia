@@ -80,6 +80,20 @@ export function Header() {
             <span className="text-xl mr-1">📅</span>
             <span className="hidden sm:inline">Calendario</span>
           </Link>
+
+          <Link
+            href="/familia"
+            className={`
+              px-4 py-2 rounded-xl font-medium transition-all duration-200
+              ${pathname === '/familia'
+                ? 'bg-purple-500 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+              }
+            `}
+          >
+            <span className="text-xl mr-1">👨‍👩‍👧‍👦</span>
+            <span className="hidden sm:inline">Familia</span>
+          </Link>
         </nav>
 
         <button

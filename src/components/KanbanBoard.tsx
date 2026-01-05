@@ -99,8 +99,25 @@ export function KanbanBoard() {
       colors: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'],
     });
 
-    await updateTaskStatus(pendingCompleteTask.id, 'done', profile);
+    await updateTaskStatus(
+      pendingCompleteTask.id,
+      'done',
+      profile,
+      pendingCompleteTask.title,
+      pendingCompleteTask.emoji
+    );
     setPendingCompleteTask(null);
+  };
+
+  // Get today's date formatted
+  const getTodayFormatted = () => {
+    const today = new Date();
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    };
+    return today.toLocaleDateString('pt-BR', options);
   };
 
   const handleCreateTask = async (data: TaskFormData) => {
@@ -117,6 +134,21 @@ export function KanbanBoard() {
 
   return (
     <div className="flex flex-col h-full gap-4">
+      {/* Today Header */}
+      <div className="bg-white rounded-2xl shadow-lg p-4 border-2 border-purple-200">
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-3xl">📅</span>
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-gray-800 capitalize">
+              {getTodayFormatted()}
+            </h2>
+            <p className="text-sm text-gray-500">
+              Mostrando tarefas de hoje
+            </p>
+          </div>
+        </div>
+      </div>
+
       <FilterBar
         filter={filter}
         setFilter={setFilter}

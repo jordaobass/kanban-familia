@@ -16,6 +16,27 @@ export interface Profile {
   color: string;
   bgColor: string;
   isChild: boolean;
+  photoUrl?: string;
+}
+
+// Family member stored in Firestore (dynamic)
+export interface FamilyMember {
+  id: string;
+  name: string;
+  photoUrl?: string;
+  isChild: boolean;
+  color: string;
+  createdAt: Timestamp;
+}
+
+// Daily activity for timeline
+export interface DailyActivity {
+  date: string; // YYYY-MM-DD
+  taskId: string;
+  taskTitle: string;
+  taskEmoji: string;
+  points: number;
+  completedAt: Timestamp;
 }
 
 export interface TaskRecurrence {

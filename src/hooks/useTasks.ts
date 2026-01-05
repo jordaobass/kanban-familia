@@ -30,8 +30,30 @@ export function useTasks() {
     };
   }, []);
 
+  // Filter tasks that should appear today
+  const isTaskForToday = (task: Task): boolean => {
+    const today = new Date().getDay(); // 0-6 (Sunday = 0)
+
+    switch (task.recurrence.type) {
+      case 'daily':
+        // Daily tasks always show
+        return true;
+      case 'weekly':
+        // Weekly tasks show only on their designated day
+        return task.recurrence.dayOfWeek === today;
+      case 'none':
+      default:
+        // One-time tasks always show until done
+        return true;
+    }
+  };
+
   const filteredTasks = tasks.filter((task) => {
+    // First filter by "today" for Kanban view
+    if (!isTaskForToday(task)) return false;
+    // Then apply category filter
     if (filter !== 'all' && task.category !== filter) return false;
+    // Then apply person filter
     if (personFilter !== 'all' && task.assignedTo !== personFilter) return false;
     return true;
   });
