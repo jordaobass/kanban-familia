@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { TaskFormData, TaskCategory, RecurrenceType, ProfileName, TimeOfDay, PROFILES, TASK_EMOJIS, WEEKDAYS, TIME_OF_DAY } from '@/types';
+import { TaskFormData, TaskCategory, RecurrenceType, TimeOfDay, TASK_EMOJIS, WEEKDAYS, TIME_OF_DAY } from '@/types';
+import { useFamilyMembers } from '@/hooks/useFamilyMembers';
+import { Avatar } from './ui/Avatar';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -13,43 +16,46 @@ export function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTaskModalPr
   const [title, setTitle] = useState('');
   const [emoji, setEmoji] = useState(TASK_EMOJIS[0]);
   const [category, setCategory] = useState<TaskCategory>('child');
-  const [selectedProfiles, setSelectedProfiles] = useState<ProfileName[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>('daily');
   const [dayOfWeek, setDayOfWeek] = useState(1); // Monday
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay | undefined>(undefined);
   const [loading, setLoading] = useState(false);
 
-  const toggleProfile = (name: ProfileName) => {
-    setSelectedProfiles(prev =>
+  const { members, loading: loadingMembers, getAvatarUrl, getMemberBgColor, getMemberEmoji } = useFamilyMembers();
+
+  const toggleMember = (name: string) => {
+    setSelectedMembers(prev =>
       prev.includes(name)
         ? prev.filter(p => p !== name)
         : [...prev, name]
     );
   };
 
-  const selectAllProfiles = () => {
-    if (selectedProfiles.length === PROFILES.length) {
-      setSelectedProfiles([]);
+  const selectAllMembers = () => {
+    if (selectedMembers.length === members.length) {
+      setSelectedMembers([]);
     } else {
-      setSelectedProfiles(PROFILES.map(p => p.name));
+      setSelectedMembers(members.map(m => m.name));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    if (selectedProfiles.length === 0) {
+    if (selectedMembers.length === 0) {
       alert('Selecione pelo menos uma pessoa!');
       return;
     }
 
     setLoading(true);
     try {
+      // Cast selectedMembers to the expected type for TaskFormData
       await onSubmit({
         title: title.trim(),
         emoji,
         category,
-        assignedTo: selectedProfiles,
+        assignedTo: selectedMembers as TaskFormData['assignedTo'],
         recurrence: {
           type: recurrenceType,
           ...(recurrenceType === 'weekly' ? { dayOfWeek } : {}),
@@ -60,7 +66,7 @@ export function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTaskModalPr
       setTitle('');
       setEmoji(TASK_EMOJIS[0]);
       setCategory('child');
-      setSelectedProfiles([]);
+      setSelectedMembers([]);
       setRecurrenceType('daily');
       setDayOfWeek(1);
       setTimeOfDay(undefined);
@@ -72,7 +78,7 @@ export function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTaskModalPr
 
   if (!isOpen) return null;
 
-  const allSelected = selectedProfiles.length === PROFILES.length;
+  const allSelected = members.length > 0 && selectedMembers.length === members.length;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -97,7 +103,7 @@ export function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTaskModalPr
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Escolha um emoji
             </label>
-            <div className="grid grid-cols-8 gap-2">
+            <div className="grid grid-cols-8 gap-2 max-h-32 overflow-y-auto">
               {TASK_EMOJIS.map((e) => (
                 <button
                   key={e}
@@ -171,52 +177,71 @@ export function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTaskModalPr
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Atribuir para (selecione um ou mais)
             </label>
-            <div className="grid grid-cols-5 gap-2">
-              <button
-                type="button"
-                onClick={selectAllProfiles}
-                className={`
-                  p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center
-                  ${allSelected
-                    ? 'border-purple-500 bg-purple-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                  }
-                `}
-              >
-                <span className="text-2xl">👨‍👩‍👧‍👦</span>
-                <span className="text-xs mt-1">Todos</span>
-              </button>
-              {PROFILES.map((profile) => {
-                const isSelected = selectedProfiles.includes(profile.name);
-                return (
+            {loadingMembers ? (
+              <div className="flex items-center justify-center py-4">
+                <LoadingSpinner />
+              </div>
+            ) : members.length === 0 ? (
+              <div className="text-center py-4 bg-gray-50 rounded-xl">
+                <span className="text-3xl block mb-2">👨‍👩‍👧‍👦</span>
+                <p className="text-gray-600">Nenhum membro cadastrado.</p>
+                <p className="text-sm text-gray-500">Cadastre membros em Família.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
                   <button
-                    key={profile.name}
                     type="button"
-                    onClick={() => toggleProfile(profile.name)}
+                    onClick={selectAllMembers}
                     className={`
-                      p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center relative
-                      ${isSelected ? 'scale-105' : 'hover:border-gray-300'}
+                      p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center
+                      ${allSelected
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                      }
                     `}
-                    style={{
-                      borderColor: isSelected ? profile.color : undefined,
-                      backgroundColor: isSelected ? profile.bgColor : undefined,
-                    }}
                   >
-                    {isSelected && (
-                      <span className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
-                        ✓
-                      </span>
-                    )}
-                    <span className="text-2xl">{profile.emoji}</span>
-                    <span className="text-xs mt-1">{profile.name}</span>
+                    <span className="text-2xl">👨‍👩‍👧‍👦</span>
+                    <span className="text-xs mt-1">Todos</span>
                   </button>
-                );
-              })}
-            </div>
-            {selectedProfiles.length > 0 && (
-              <p className="text-sm text-gray-500 mt-2">
-                {selectedProfiles.length} pessoa(s) selecionada(s) - sera criada 1 tarefa para cada
-              </p>
+                  {members.map((member) => {
+                    const isSelected = selectedMembers.includes(member.name);
+                    return (
+                      <button
+                        key={member.id}
+                        type="button"
+                        onClick={() => toggleMember(member.name)}
+                        className={`
+                          p-3 rounded-xl border-2 transition-all duration-200 flex flex-col items-center relative
+                          ${isSelected ? 'scale-105' : 'hover:border-gray-300'}
+                        `}
+                        style={{
+                          borderColor: isSelected ? member.color : undefined,
+                          backgroundColor: isSelected ? getMemberBgColor(member) : undefined,
+                        }}
+                      >
+                        {isSelected && (
+                          <span className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
+                            ✓
+                          </span>
+                        )}
+                        <Avatar
+                          src={getAvatarUrl(member)}
+                          alt={member.name}
+                          fallback={getMemberEmoji(member)}
+                          size="md"
+                        />
+                        <span className="text-xs mt-1">{member.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedMembers.length > 0 && (
+                  <p className="text-sm text-gray-500 mt-2">
+                    {selectedMembers.length} pessoa(s) selecionada(s) - sera criada 1 tarefa para cada
+                  </p>
+                )}
+              </>
             )}
           </div>
 
@@ -328,7 +353,7 @@ export function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTaskModalPr
           {/* Submit */}
           <button
             type="submit"
-            disabled={loading || !title.trim() || selectedProfiles.length === 0}
+            disabled={loading || !title.trim() || selectedMembers.length === 0}
             className="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
@@ -337,7 +362,7 @@ export function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTaskModalPr
               </span>
             ) : (
               <span className="flex items-center justify-center gap-2">
-                <span>✨</span> Criar {selectedProfiles.length > 1 ? `${selectedProfiles.length} Tarefas` : 'Tarefa'}
+                <span>✨</span> Criar {selectedMembers.length > 1 ? `${selectedMembers.length} Tarefas` : 'Tarefa'}
               </span>
             )}
           </button>

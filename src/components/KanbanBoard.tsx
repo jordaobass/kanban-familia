@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import confetti from 'canvas-confetti';
-import { Task, TaskFormData, ProfileName } from '@/types';
+import { Task, TaskFormData } from '@/types';
 import { useTasks } from '@/hooks/useTasks';
 import { updateTaskStatus, createTask } from '@/lib/firestore';
 import { playCoinSound, initSounds } from '@/lib/sounds';
@@ -27,10 +27,11 @@ import { CompletedByModal } from './CompletedByModal';
 import { LoadingSpinner } from './LoadingSpinner';
 
 export function KanbanBoard() {
-  const { todoTasks, doneTasks, loading, filter, setFilter, personFilter, setPersonFilter } = useTasks();
+  const { todoTasks, doneTasks, loading, filter, setFilter, personFilter, setPersonFilter, checkAndResetTasks } = useTasks();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingCompleteTask, setPendingCompleteTask] = useState<Task | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   // Initialize sounds on mount
   useEffect(() => {
@@ -87,7 +88,7 @@ export function KanbanBoard() {
     }
   };
 
-  const handleCompleteTask = async (profile: ProfileName) => {
+  const handleCompleteTask = async (memberName: string) => {
     if (!pendingCompleteTask) return;
 
     // Play sound and confetti!
@@ -102,7 +103,7 @@ export function KanbanBoard() {
     await updateTaskStatus(
       pendingCompleteTask.id,
       'done',
-      profile,
+      memberName,
       pendingCompleteTask.title,
       pendingCompleteTask.emoji
     );
@@ -124,6 +125,15 @@ export function KanbanBoard() {
     await createTask(data, 'Sistema');
   };
 
+  const handleResetTasks = async () => {
+    setResetting(true);
+    try {
+      await checkAndResetTasks();
+    } finally {
+      setResetting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -136,16 +146,27 @@ export function KanbanBoard() {
     <div className="flex flex-col h-full gap-4">
       {/* Today Header */}
       <div className="bg-white rounded-2xl shadow-lg p-4 border-2 border-purple-200">
-        <div className="flex items-center justify-center gap-3">
-          <span className="text-3xl">📅</span>
-          <div className="text-center">
-            <h2 className="text-xl font-bold text-gray-800 capitalize">
-              {getTodayFormatted()}
-            </h2>
-            <p className="text-sm text-gray-500">
-              Mostrando tarefas de hoje
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">📅</span>
+            <div>
+              <h2 className="text-xl font-bold text-gray-800 capitalize">
+                {getTodayFormatted()}
+              </h2>
+              <p className="text-sm text-gray-500">
+                Mostrando tarefas de hoje
+              </p>
+            </div>
           </div>
+          <button
+            onClick={handleResetTasks}
+            disabled={resetting}
+            className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-200 disabled:opacity-50 flex items-center gap-2"
+            title="Atualizar tarefas do dia"
+          >
+            <span className={`text-lg ${resetting ? 'animate-spin' : ''}`}>🔄</span>
+            <span className="hidden sm:inline">{resetting ? 'Atualizando...' : 'Atualizar'}</span>
+          </button>
         </div>
       </div>
 

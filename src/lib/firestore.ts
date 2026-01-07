@@ -14,7 +14,7 @@ import {
   getDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Task, TaskFormData, Score, ProfileName, TaskStatus, getWeekString, FamilyMember, DailyActivity, PenaltyReason, DEFAULT_PENALTY_REASONS } from '@/types';
+import { Task, TaskFormData, Score, TaskStatus, getWeekString, FamilyMember, DailyActivity, PenaltyReason, DEFAULT_PENALTY_REASONS } from '@/types';
 
 const TASKS_COLLECTION = 'tasks';
 const SCORES_COLLECTION = 'scores';
@@ -67,7 +67,7 @@ export const createTask = async (taskData: TaskFormData, createdBy: string): Pro
 export const updateTaskStatus = async (
   taskId: string,
   status: TaskStatus,
-  completedBy?: ProfileName,
+  completedBy?: string,
   taskTitle?: string,
   taskEmoji?: string
 ): Promise<void> => {
@@ -123,9 +123,15 @@ export const updateTask = async (
   });
 };
 
+// Helper to get date string in YYYY-MM-DD format
+const getDateString = (date: Date): string => {
+  return date.toISOString().split('T')[0];
+};
+
 export const resetDailyTasks = async (): Promise<void> => {
   const now = new Date();
-  const today = now.getDay(); // 0-6 (Sunday = 0)
+  const todayStr = getDateString(now);
+  const todayDayOfWeek = now.getDay(); // 0-6 (Sunday = 0)
 
   const q = query(collection(db, TASKS_COLLECTION), where('status', '==', 'done'));
   const snapshot = await getDocs(q);
@@ -135,14 +141,21 @@ export const resetDailyTasks = async (): Promise<void> => {
   snapshot.forEach((docSnapshot) => {
     const task = docSnapshot.data() as Task;
     const lastReset = task.lastResetAt.toDate();
-    const hoursSinceReset = (now.getTime() - lastReset.getTime()) / (1000 * 60 * 60);
+    const lastResetDateStr = getDateString(lastReset);
+
+    // Check if the date has changed (new day)
+    const isNewDay = todayStr !== lastResetDateStr;
+
+    if (!isNewDay) return; // Same day, no reset needed
 
     let shouldReset = false;
 
-    if (task.recurrence.type === 'daily' && hoursSinceReset >= 24) {
+    if (task.recurrence.type === 'daily') {
+      // Daily tasks reset every new day
       shouldReset = true;
     } else if (task.recurrence.type === 'weekly') {
-      if (task.recurrence.dayOfWeek === today && hoursSinceReset >= 24) {
+      // Weekly tasks reset only on their designated day
+      if (task.recurrence.dayOfWeek === todayDayOfWeek) {
         shouldReset = true;
       }
     }
@@ -176,7 +189,7 @@ export const subscribeScores = (callback: (scores: Score[]) => void, weekStr?: s
   });
 };
 
-export const updateScore = async (profile: ProfileName, taskId: string): Promise<void> => {
+export const updateScore = async (profile: string, taskId: string): Promise<void> => {
   const week = getCurrentWeek();
   const scoreId = `${profile}_${week}`;
   const scoreRef = doc(db, SCORES_COLLECTION, scoreId);
@@ -225,9 +238,11 @@ export const subscribeFamilyMembers = (callback: (members: FamilyMember[]) => vo
 
 export const createFamilyMember = async (data: {
   name: string;
+  emoji?: string;
   photoUrl?: string;
   isChild: boolean;
   color: string;
+  birthDate?: string;
 }): Promise<string> => {
   const docRef = await addDoc(collection(db, MEMBERS_COLLECTION), {
     ...data,
@@ -240,9 +255,11 @@ export const updateFamilyMember = async (
   memberId: string,
   data: {
     name?: string;
+    emoji?: string;
     photoUrl?: string;
     isChild?: boolean;
     color?: string;
+    birthDate?: string;
   }
 ): Promise<void> => {
   const memberRef = doc(db, MEMBERS_COLLECTION, memberId);
@@ -255,7 +272,7 @@ export const deleteFamilyMember = async (memberId: string): Promise<void> => {
 
 // Activities Functions (for timeline)
 export const recordActivity = async (
-  profile: ProfileName,
+  profile: string,
   taskId: string,
   taskTitle: string,
   taskEmoji: string
@@ -277,7 +294,7 @@ export const recordActivity = async (
 
 // Record a penalty
 export const recordPenalty = async (
-  profile: ProfileName,
+  profile: string,
   reason: string,
   emoji: string,
   points: number
@@ -319,10 +336,10 @@ export const recordPenalty = async (
 };
 
 export const subscribeActivities = (
-  profile: ProfileName,
+  profile: string,
   startDate: string,
   endDate: string,
-  callback: (activities: (DailyActivity & { profile: ProfileName })[]) => void
+  callback: (activities: (DailyActivity & { profile: string })[]) => void
 ) => {
   const q = query(
     collection(db, ACTIVITIES_COLLECTION),
@@ -332,9 +349,9 @@ export const subscribeActivities = (
   );
 
   return onSnapshot(q, (snapshot) => {
-    const activities: (DailyActivity & { profile: ProfileName })[] = [];
+    const activities: (DailyActivity & { profile: string })[] = [];
     snapshot.forEach((doc) => {
-      activities.push({ id: doc.id, ...doc.data() } as DailyActivity & { profile: ProfileName; id: string });
+      activities.push({ id: doc.id, ...doc.data() } as DailyActivity & { profile: string; id: string });
     });
     // Sort by completedAt descending
     activities.sort((a, b) => b.completedAt.toMillis() - a.completedAt.toMillis());
@@ -343,7 +360,7 @@ export const subscribeActivities = (
 };
 
 export const getActivitiesForDay = async (
-  profile: ProfileName,
+  profile: string,
   date: string
 ): Promise<DailyActivity[]> => {
   const q = query(

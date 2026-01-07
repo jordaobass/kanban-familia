@@ -118,8 +118,8 @@ export function TaskCard({ task, isDragging, onComplete }: TaskCardProps) {
           <span className="absolute inset-1 rounded-full bg-gradient-to-br from-white/30 to-transparent" />
 
           {/* Icon */}
-          <span className="text-2xl text-white drop-shadow-md relative z-10 group-hover:scale-125 transition-transform">
-            ✨
+          <span className="text-3xl text-white drop-shadow-md relative z-10 group-hover:scale-125 transition-transform font-bold">
+            ✓
           </span>
         </button>
       )}

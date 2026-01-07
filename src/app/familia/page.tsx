@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Header } from '@/components/Header';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Avatar, PLACEHOLDER_AVATARS } from '@/components/ui/Avatar';
-import { FamilyMember, ProfileName } from '@/types';
+import { FamilyMember, ProfileName, PERSON_EMOJIS } from '@/types';
 import {
   subscribeFamilyMembers,
   createFamilyMember,
@@ -34,9 +34,11 @@ export default function FamiliaPage() {
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    emoji: '👨',
     photoUrl: '',
     isChild: false,
     color: '#EC4899',
+    birthDate: '',
   });
 
   useEffect(() => {
@@ -59,17 +61,21 @@ export default function FamiliaPage() {
       setEditingMember(member);
       setFormData({
         name: member.name,
+        emoji: member.emoji || '👨',
         photoUrl: member.photoUrl || '',
         isChild: member.isChild,
         color: member.color,
+        birthDate: member.birthDate || '',
       });
     } else {
       setEditingMember(null);
       setFormData({
         name: '',
+        emoji: '👨',
         photoUrl: '',
         isChild: false,
         color: '#EC4899',
+        birthDate: '',
       });
     }
     setShowModal(true);
@@ -80,9 +86,11 @@ export default function FamiliaPage() {
     setEditingMember(null);
     setFormData({
       name: '',
+      emoji: '👨',
       photoUrl: '',
       isChild: false,
       color: '#EC4899',
+      birthDate: '',
     });
   };
 
@@ -114,6 +122,21 @@ export default function FamiliaPage() {
   const getPlaceholderPhoto = (name: string) => {
     const key = name as ProfileName;
     return PLACEHOLDER_AVATARS[key] || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=200`;
+  };
+
+  // Check if today is someone's birthday
+  const isBirthday = (birthDate?: string): boolean => {
+    if (!birthDate) return false;
+    const today = new Date();
+    const birth = new Date(birthDate + 'T12:00:00');
+    return today.getMonth() === birth.getMonth() && today.getDate() === birth.getDate();
+  };
+
+  // Format birth date for display
+  const formatBirthDate = (birthDate?: string): string => {
+    if (!birthDate) return '';
+    const date = new Date(birthDate + 'T12:00:00');
+    return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
   };
 
   if (authLoading || loading) {
@@ -169,32 +192,55 @@ export default function FamiliaPage() {
               {members.map((member) => (
                 <div
                   key={member.id}
-                  className="bg-white rounded-2xl shadow-lg p-6 border-l-4 hover:shadow-xl transition-all duration-200"
+                  className={`
+                    bg-white rounded-2xl shadow-lg p-6 border-l-4 hover:shadow-xl transition-all duration-200
+                    ${isBirthday(member.birthDate) ? 'ring-4 ring-yellow-400 ring-offset-2' : ''}
+                  `}
                   style={{ borderLeftColor: member.color }}
                 >
+                  {isBirthday(member.birthDate) && (
+                    <div className="flex items-center justify-center gap-2 mb-4 p-2 bg-gradient-to-r from-yellow-100 to-pink-100 rounded-xl">
+                      <span className="text-2xl">🎂</span>
+                      <span className="font-bold text-pink-600">Feliz Aniversário!</span>
+                      <span className="text-2xl">🎉</span>
+                    </div>
+                  )}
                   <div className="flex items-center gap-4">
-                    <Avatar
-                      src={member.photoUrl || getPlaceholderPhoto(member.name)}
-                      alt={member.name}
-                      fallback={member.name.charAt(0)}
-                      size="lg"
-                    />
+                    <div className="relative">
+                      <Avatar
+                        src={member.photoUrl}
+                        alt={member.name}
+                        fallback={member.emoji || '👤'}
+                        size="lg"
+                      />
+                      {isBirthday(member.birthDate) && (
+                        <span className="absolute -top-2 -right-2 text-2xl animate-bounce">🎈</span>
+                      )}
+                    </div>
 
                     <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-800">
+                      <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <span className="text-2xl">{member.emoji || '👤'}</span>
                         {member.name}
                       </h3>
-                      <span
-                        className={`
-                          inline-block px-3 py-1 rounded-full text-sm font-medium mt-1
-                          ${member.isChild
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-blue-100 text-blue-700'
-                          }
-                        `}
-                      >
-                        {member.isChild ? 'Crianca' : 'Adulto'}
-                      </span>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        <span
+                          className={`
+                            inline-block px-3 py-1 rounded-full text-sm font-medium
+                            ${member.isChild
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-blue-100 text-blue-700'
+                            }
+                          `}
+                        >
+                          {member.isChild ? 'Crianca' : 'Adulto'}
+                        </span>
+                        {member.birthDate && (
+                          <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-700">
+                            🎂 {formatBirthDate(member.birthDate)}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex gap-2">
@@ -256,9 +302,9 @@ export default function FamiliaPage() {
               {/* Preview */}
               <div className="flex justify-center mb-4">
                 <Avatar
-                  src={formData.photoUrl || getPlaceholderPhoto(formData.name || 'N')}
+                  src={formData.photoUrl || undefined}
                   alt={formData.name}
-                  fallback={formData.name.charAt(0) || '?'}
+                  fallback={formData.emoji || '👤'}
                   size="xl"
                 />
               </div>
@@ -275,6 +321,28 @@ export default function FamiliaPage() {
                   placeholder="Nome do membro"
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
                 />
+              </div>
+
+              {/* Emoji */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Emoji
+                </label>
+                <div className="grid grid-cols-8 gap-2 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded-xl">
+                  {PERSON_EMOJIS.map((e) => (
+                    <button
+                      key={e}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, emoji: e })}
+                      className={`
+                        text-2xl p-2 rounded-xl transition-all duration-200
+                        ${formData.emoji === e ? 'bg-purple-200 scale-110 shadow-lg' : 'hover:bg-gray-200'}
+                      `}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Photo URL */}
@@ -324,6 +392,19 @@ export default function FamiliaPage() {
                     👧 Crianca
                   </button>
                 </div>
+              </div>
+
+              {/* Birth Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Data de Nascimento (opcional)
+                </label>
+                <input
+                  type="date"
+                  value={formData.birthDate}
+                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                />
               </div>
 
               {/* Color */}

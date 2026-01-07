@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DailyActivity, ProfileName, PROFILES, getWeekDates } from '@/types';
+import { DailyActivity, FamilyMember, getWeekDates } from '@/types';
 import { subscribeActivities } from '@/lib/firestore';
-import { Avatar, PLACEHOLDER_AVATARS } from './ui/Avatar';
+import { useFamilyMembers } from '@/hooks/useFamilyMembers';
+import { Avatar } from './ui/Avatar';
 import { LoadingSpinner } from './LoadingSpinner';
 
 interface ActivityTimelineProps {
@@ -26,14 +27,22 @@ const FUN_MESSAGES = [
 const getRandomMessage = () => FUN_MESSAGES[Math.floor(Math.random() * FUN_MESSAGES.length)];
 
 export function ActivityTimeline({ isOpen, onClose, weekString }: ActivityTimelineProps) {
-  const [selectedProfile, setSelectedProfile] = useState<ProfileName>('Prin');
-  const [activities, setActivities] = useState<(DailyActivity & { profile: ProfileName })[]>([]);
+  const { members, loading: loadingMembers, getAvatarUrl, getMemberBgColor, getMemberEmoji } = useFamilyMembers();
+  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
+  const [activities, setActivities] = useState<(DailyActivity & { profile: string })[]>([]);
   const [loading, setLoading] = useState(true);
 
   const weekDates = getWeekDates(weekString);
 
+  // Auto-select first member when members load
   useEffect(() => {
-    if (!isOpen) return;
+    if (members.length > 0 && !selectedMember) {
+      setSelectedMember(members[0]);
+    }
+  }, [members, selectedMember]);
+
+  useEffect(() => {
+    if (!isOpen || !selectedMember) return;
 
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Loading state before async subscription
     setLoading(true);
@@ -44,7 +53,7 @@ export function ActivityTimeline({ isOpen, onClose, weekString }: ActivityTimeli
     const endDate = dates.end.toISOString().split('T')[0];
 
     const unsubscribe = subscribeActivities(
-      selectedProfile,
+      selectedMember.name,
       startDate,
       endDate,
       (fetchedActivities) => {
@@ -54,11 +63,9 @@ export function ActivityTimeline({ isOpen, onClose, weekString }: ActivityTimeli
     );
 
     return () => unsubscribe();
-  }, [isOpen, selectedProfile, weekString]);
+  }, [isOpen, selectedMember, weekString]);
 
   if (!isOpen) return null;
-
-  const profile = PROFILES.find((p) => p.name === selectedProfile);
 
   // Group activities by date
   const groupedActivities = activities.reduce((acc, activity) => {
@@ -68,7 +75,7 @@ export function ActivityTimeline({ isOpen, onClose, weekString }: ActivityTimeli
     }
     acc[date].push(activity);
     return acc;
-  }, {} as Record<string, (DailyActivity & { profile: ProfileName })[]>);
+  }, {} as Record<string, (DailyActivity & { profile: string })[]>);
 
   // Get all dates in the week
   const getDatesInWeek = () => {
@@ -126,34 +133,44 @@ export function ActivityTimeline({ isOpen, onClose, weekString }: ActivityTimeli
           </div>
 
           {/* Profile Selector */}
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {PROFILES.map((p) => (
-              <button
-                key={p.name}
-                onClick={() => setSelectedProfile(p.name)}
-                className={`
-                  flex flex-col items-center gap-1 p-3 rounded-2xl transition-all duration-200 min-w-[80px]
-                  ${selectedProfile === p.name
-                    ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg scale-105'
-                    : 'bg-gray-100 hover:bg-gray-200'
-                  }
-                `}
-              >
-                <Avatar
-                  src={PLACEHOLDER_AVATARS[p.name]}
-                  alt={p.name}
-                  fallback={p.emoji}
-                  size="md"
-                />
-                <span className="font-medium text-sm">{p.name}</span>
-              </button>
-            ))}
-          </div>
+          {loadingMembers ? (
+            <div className="flex items-center justify-center py-4">
+              <LoadingSpinner />
+            </div>
+          ) : members.length === 0 ? (
+            <div className="text-center py-4">
+              <p className="text-gray-500">Nenhum membro cadastrado.</p>
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {members.map((member) => (
+                <button
+                  key={member.id}
+                  onClick={() => setSelectedMember(member)}
+                  className={`
+                    flex flex-col items-center gap-1 p-3 rounded-2xl transition-all duration-200 min-w-[80px]
+                    ${selectedMember?.id === member.id
+                      ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg scale-105'
+                      : 'bg-gray-100 hover:bg-gray-200'
+                    }
+                  `}
+                >
+                  <Avatar
+                    src={getAvatarUrl(member)}
+                    alt={member.name}
+                    fallback={getMemberEmoji(member)}
+                    size="md"
+                  />
+                  <span className="font-medium text-sm">{member.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Timeline Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
+          {loading || !selectedMember ? (
             <div className="flex items-center justify-center h-40">
               <LoadingSpinner />
             </div>
@@ -164,7 +181,7 @@ export function ActivityTimeline({ isOpen, onClose, weekString }: ActivityTimeli
                 Nenhuma atividade ainda
               </h3>
               <p className="text-gray-500">
-                {profile?.name} nao completou tarefas nesta semana.
+                {selectedMember.name} nao completou tarefas nesta semana.
                 <br />
                 Hora de comecar! 💪
               </p>
@@ -181,7 +198,7 @@ export function ActivityTimeline({ isOpen, onClose, weekString }: ActivityTimeli
                     <div className="flex items-center gap-3 mb-3">
                       <div
                         className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold shadow-lg"
-                        style={{ backgroundColor: profile?.color || '#6366F1' }}
+                        style={{ backgroundColor: selectedMember.color || '#6366F1' }}
                       >
                         {new Date(dateStr + 'T12:00:00').getDate()}
                       </div>
@@ -229,7 +246,7 @@ export function ActivityTimeline({ isOpen, onClose, weekString }: ActivityTimeli
                                   </p>
                                 </div>
                                 <div className="text-right">
-                                  <span className={`text-lg font-bold ${isPenalty ? 'text-red-600' : ''}`} style={!isPenalty ? { color: profile?.color } : {}}>
+                                  <span className={`text-lg font-bold ${isPenalty ? 'text-red-600' : ''}`} style={!isPenalty ? { color: selectedMember.color } : {}}>
                                     {activity.points > 0 ? '+' : ''}{activity.points}
                                   </span>
                                   <p className="text-xs text-gray-500">
@@ -256,23 +273,30 @@ export function ActivityTimeline({ isOpen, onClose, weekString }: ActivityTimeli
         </div>
 
         {/* Footer Stats */}
-        <div className="p-6 border-t border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50 rounded-b-3xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">{profile?.emoji}</span>
-              <div>
-                <h4 className="font-bold text-gray-800">{profile?.name}</h4>
-                <p className="text-sm text-gray-500">Resumo da semana</p>
+        {selectedMember && (
+          <div className="p-6 border-t border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50 rounded-b-3xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar
+                  src={getAvatarUrl(selectedMember)}
+                  alt={selectedMember.name}
+                  fallback={getMemberEmoji(selectedMember)}
+                  size="lg"
+                />
+                <div>
+                  <h4 className="font-bold text-gray-800">{selectedMember.name}</h4>
+                  <p className="text-sm text-gray-500">Resumo da semana</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-3xl font-bold" style={{ color: selectedMember.color }}>
+                  {activities.reduce((sum, a) => sum + a.points, 0)}
+                </span>
+                <p className="text-sm text-gray-500">pontos totais</p>
               </div>
             </div>
-            <div className="text-right">
-              <span className="text-3xl font-bold" style={{ color: profile?.color }}>
-                {activities.reduce((sum, a) => sum + a.points, 0)}
-              </span>
-              <p className="text-sm text-gray-500">pontos totais</p>
-            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <style jsx>{`

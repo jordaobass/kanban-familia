@@ -23,11 +23,21 @@ export interface Profile {
 export interface FamilyMember {
   id: string;
   name: string;
+  emoji?: string; // emoji do membro
   photoUrl?: string;
   isChild: boolean;
   color: string;
+  birthDate?: string; // formato YYYY-MM-DD
   createdAt: Timestamp;
 }
+
+// Emojis para membros da família
+export const PERSON_EMOJIS = [
+  '👨', '👩', '🧒', '👧', '👦', '👸', '🤴', '👶',
+  '🧔', '👱', '👴', '👵', '🧑', '👲', '🧕', '🦸',
+  '🦹', '🧙', '🧚', '🧛', '🧜', '🧝', '🧞', '🧟',
+  '🤖', '👽', '👻', '😺', '🐶', '🐱', '🦊', '🐻',
+];
 
 // Activity type for timeline
 export type ActivityType = 'task' | 'penalty';

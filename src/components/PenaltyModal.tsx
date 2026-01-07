@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PROFILES, ProfileName, PenaltyReason } from '@/types';
+import { PenaltyReason, FamilyMember } from '@/types';
 import { recordPenalty, subscribePenaltyReasons, initializePenaltyReasons } from '@/lib/firestore';
+import { useFamilyMembers } from '@/hooks/useFamilyMembers';
 import { LoadingSpinner } from './LoadingSpinner';
+import { Avatar } from './ui/Avatar';
 
 interface PenaltyModalProps {
   isOpen: boolean;
@@ -12,10 +14,11 @@ interface PenaltyModalProps {
 
 export function PenaltyModal({ isOpen, onClose }: PenaltyModalProps) {
   const [step, setStep] = useState<'profile' | 'reason'>('profile');
-  const [selectedProfile, setSelectedProfile] = useState<ProfileName | null>(null);
+  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [loading, setLoading] = useState(false);
   const [penaltyReasons, setPenaltyReasons] = useState<PenaltyReason[]>([]);
   const [loadingReasons, setLoadingReasons] = useState(true);
+  const { members, loading: loadingMembers, getAvatarUrl, getMemberBgColor, getMemberEmoji } = useFamilyMembers();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -33,18 +36,18 @@ export function PenaltyModal({ isOpen, onClose }: PenaltyModalProps) {
 
   if (!isOpen) return null;
 
-  const handleSelectProfile = (profile: ProfileName) => {
-    setSelectedProfile(profile);
+  const handleSelectMember = (member: FamilyMember) => {
+    setSelectedMember(member);
     setStep('reason');
   };
 
   const handleSelectReason = async (reason: { emoji: string; reason: string; points: number }) => {
-    if (!selectedProfile || loading) return;
+    if (!selectedMember || loading) return;
 
     setLoading(true);
 
     try {
-      await recordPenalty(selectedProfile, reason.reason, reason.emoji, reason.points);
+      await recordPenalty(selectedMember.name, reason.reason, reason.emoji, reason.points);
       handleClose();
     } catch (error) {
       console.error('Error recording penalty:', error);
@@ -54,17 +57,15 @@ export function PenaltyModal({ isOpen, onClose }: PenaltyModalProps) {
 
   const handleClose = () => {
     setStep('profile');
-    setSelectedProfile(null);
+    setSelectedMember(null);
     setLoading(false);
     onClose();
   };
 
   const handleBack = () => {
     setStep('profile');
-    setSelectedProfile(null);
+    setSelectedMember(null);
   };
-
-  const profile = selectedProfile ? PROFILES.find((p) => p.name === selectedProfile) : null;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -94,11 +95,16 @@ export function PenaltyModal({ isOpen, onClose }: PenaltyModalProps) {
             </button>
           </div>
 
-          {step === 'reason' && profile && (
+          {step === 'reason' && selectedMember && (
             <div className="mt-4 flex items-center gap-3 p-3 rounded-xl bg-red-50">
-              <span className="text-3xl">{profile.emoji}</span>
+              <Avatar
+                src={getAvatarUrl(selectedMember)}
+                alt={selectedMember.name}
+                fallback={getMemberEmoji(selectedMember)}
+                size="md"
+              />
               <div>
-                <p className="font-bold text-gray-800">{profile.name}</p>
+                <p className="font-bold text-gray-800">{selectedMember.name}</p>
                 <p className="text-sm text-red-600">Vai perder pontos</p>
               </div>
             </div>
@@ -124,21 +130,38 @@ export function PenaltyModal({ isOpen, onClose }: PenaltyModalProps) {
               <p className="text-gray-600 text-center mb-4">
                 Quem vai receber a penalidade?
               </p>
-              <div className="grid grid-cols-2 gap-3">
-                {PROFILES.map((p) => (
-                  <button
-                    key={p.name}
-                    onClick={() => handleSelectProfile(p.name)}
-                    className="flex flex-col items-center justify-center p-4 rounded-2xl transition-all duration-200 hover:scale-105 active:scale-95 border-2 border-transparent hover:border-red-300"
-                    style={{ backgroundColor: p.bgColor }}
-                  >
-                    <span className="text-5xl mb-2">{p.emoji}</span>
-                    <span className="font-bold" style={{ color: p.color }}>
-                      {p.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              {loadingMembers ? (
+                <div className="flex items-center justify-center py-8">
+                  <LoadingSpinner />
+                </div>
+              ) : members.length === 0 ? (
+                <div className="text-center py-8">
+                  <span className="text-4xl block mb-2">👨‍👩‍👧‍👦</span>
+                  <p className="text-gray-600">Nenhum membro cadastrado.</p>
+                  <p className="text-sm text-gray-500">Cadastre membros em Família.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {members.map((member) => (
+                    <button
+                      key={member.id}
+                      onClick={() => handleSelectMember(member)}
+                      className="flex flex-col items-center justify-center p-4 rounded-2xl transition-all duration-200 hover:scale-105 active:scale-95 border-2 border-transparent hover:border-red-300"
+                      style={{ backgroundColor: getMemberBgColor(member) }}
+                    >
+                      <Avatar
+                        src={getAvatarUrl(member)}
+                        alt={member.name}
+                        fallback={getMemberEmoji(member)}
+                        size="lg"
+                      />
+                      <span className="font-bold mt-2" style={{ color: member.color }}>
+                        {member.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : loadingReasons ? (
             <div className="flex items-center justify-center py-12">

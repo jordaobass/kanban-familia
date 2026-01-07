@@ -1,16 +1,20 @@
 'use client';
 
-import { TaskCategory, ProfileName, PROFILES } from '@/types';
+import { TaskCategory } from '@/types';
+import { useFamilyMembers } from '@/hooks/useFamilyMembers';
+import { Avatar } from './ui/Avatar';
 
 interface FilterBarProps {
   filter: TaskCategory | 'all';
   setFilter: (filter: TaskCategory | 'all') => void;
-  personFilter: ProfileName | 'all';
-  setPersonFilter: (filter: ProfileName | 'all') => void;
+  personFilter: string | 'all';
+  setPersonFilter: (filter: string | 'all') => void;
   onCreateTask: () => void;
 }
 
 export function FilterBar({ filter, setFilter, personFilter, setPersonFilter, onCreateTask }: FilterBarProps) {
+  const { members, getAvatarUrl, getMemberBgColor, getMemberEmoji } = useFamilyMembers();
+
   const categoryFilters: { value: TaskCategory | 'all'; label: string; emoji: string }[] = [
     { value: 'all', label: 'Todos', emoji: '👨‍👩‍👧‍👦' },
     { value: 'adult', label: 'Adultos', emoji: '👨' },
@@ -57,24 +61,29 @@ export function FilterBar({ filter, setFilter, personFilter, setPersonFilter, on
             >
               <span className="text-lg">👥</span>
             </button>
-            {PROFILES.map((profile) => (
+            {members.map((member) => (
               <button
-                key={profile.name}
-                onClick={() => setPersonFilter(profile.name)}
+                key={member.id}
+                onClick={() => setPersonFilter(member.name)}
                 className={`
                   p-2 rounded-xl transition-all duration-200
-                  ${personFilter === profile.name
+                  ${personFilter === member.name
                     ? 'ring-2 scale-110'
                     : 'hover:bg-gray-200'
                   }
                 `}
                 style={{
-                  backgroundColor: personFilter === profile.name ? profile.bgColor : undefined,
-                  ['--tw-ring-color' as string]: personFilter === profile.name ? profile.color : undefined,
+                  backgroundColor: personFilter === member.name ? getMemberBgColor(member) : undefined,
+                  ['--tw-ring-color' as string]: personFilter === member.name ? member.color : undefined,
                 }}
-                title={profile.name}
+                title={member.name}
               >
-                <span className="text-lg">{profile.emoji}</span>
+                <Avatar
+                  src={getAvatarUrl(member)}
+                  alt={member.name}
+                  fallback={getMemberEmoji(member)}
+                  size="sm"
+                />
               </button>
             ))}
           </div>

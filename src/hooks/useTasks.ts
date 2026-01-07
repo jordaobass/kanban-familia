@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Task, TaskCategory, ProfileName } from '@/types';
+import { Task, TaskCategory } from '@/types';
 import { subscribeTasks, resetDailyTasks } from '@/lib/firestore';
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<TaskCategory | 'all'>('all');
-  const [personFilter, setPersonFilter] = useState<ProfileName | 'all'>('all');
+  const [personFilter, setPersonFilter] = useState<string | 'all'>('all');
 
   useEffect(() => {
     const unsubscribe = subscribeTasks((fetchedTasks) => {
@@ -19,16 +19,15 @@ export function useTasks() {
     // Check for task reset on load
     resetDailyTasks().catch(console.error);
 
-    // Set up interval to check for resets every hour
-    const resetInterval = setInterval(() => {
-      resetDailyTasks().catch(console.error);
-    }, 60 * 60 * 1000);
-
     return () => {
       unsubscribe();
-      clearInterval(resetInterval);
     };
   }, []);
+
+  // Manual reset function
+  const checkAndResetTasks = async () => {
+    await resetDailyTasks();
+  };
 
   // Filter tasks that should appear today
   const isTaskForToday = (task: Task): boolean => {
@@ -70,5 +69,6 @@ export function useTasks() {
     setFilter,
     personFilter,
     setPersonFilter,
+    checkAndResetTasks,
   };
 }
