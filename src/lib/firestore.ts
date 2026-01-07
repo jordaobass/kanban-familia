@@ -14,12 +14,13 @@ import {
   getDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Task, TaskFormData, Score, ProfileName, TaskStatus, getWeekString, FamilyMember, DailyActivity } from '@/types';
+import { Task, TaskFormData, Score, ProfileName, TaskStatus, getWeekString, FamilyMember, DailyActivity, PenaltyReason, DEFAULT_PENALTY_REASONS } from '@/types';
 
 const TASKS_COLLECTION = 'tasks';
 const SCORES_COLLECTION = 'scores';
 const MEMBERS_COLLECTION = 'familyMembers';
 const ACTIVITIES_COLLECTION = 'activities';
+const PENALTY_REASONS_COLLECTION = 'penaltyReasons';
 
 // Get current week in YYYY-WXX format
 const getCurrentWeek = (): string => {
@@ -264,6 +265,7 @@ export const recordActivity = async (
 
   await addDoc(collection(db, ACTIVITIES_COLLECTION), {
     profile,
+    type: 'task',
     date: dateStr,
     taskId,
     taskTitle,
@@ -271,6 +273,49 @@ export const recordActivity = async (
     points: 1,
     completedAt: Timestamp.now(),
   });
+};
+
+// Record a penalty
+export const recordPenalty = async (
+  profile: ProfileName,
+  reason: string,
+  emoji: string,
+  points: number
+): Promise<void> => {
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+  const week = getWeekString(now);
+
+  // Record in activities for timeline
+  await addDoc(collection(db, ACTIVITIES_COLLECTION), {
+    profile,
+    type: 'penalty',
+    date: dateStr,
+    taskTitle: reason,
+    taskEmoji: emoji,
+    points: points, // Negative value
+    penaltyReason: reason,
+    completedAt: Timestamp.now(),
+  });
+
+  // Update score (subtract points)
+  const scoreId = `${profile}_${week}`;
+  const scoreRef = doc(db, SCORES_COLLECTION, scoreId);
+
+  const scoreDoc = await getDoc(scoreRef);
+
+  if (scoreDoc.exists()) {
+    await updateDoc(scoreRef, {
+      points: increment(points), // points is negative
+    });
+  } else {
+    await setDoc(scoreRef, {
+      profile,
+      week,
+      points: points, // Negative starting value
+      tasksCompleted: [],
+    });
+  }
 };
 
 export const subscribeActivities = (
@@ -312,4 +357,69 @@ export const getActivitiesForDay = async (
     activities.push({ ...doc.data() } as DailyActivity);
   });
   return activities;
+};
+
+// Penalty Reasons Functions
+export const subscribePenaltyReasons = (callback: (reasons: PenaltyReason[]) => void) => {
+  const q = query(collection(db, PENALTY_REASONS_COLLECTION));
+
+  return onSnapshot(q, (snapshot) => {
+    const reasons: PenaltyReason[] = [];
+    snapshot.forEach((doc) => {
+      reasons.push({ id: doc.id, ...doc.data() } as PenaltyReason);
+    });
+    // Sort by points (most severe first)
+    reasons.sort((a, b) => a.points - b.points);
+    callback(reasons);
+  });
+};
+
+export const initializePenaltyReasons = async (): Promise<void> => {
+  const snapshot = await getDocs(collection(db, PENALTY_REASONS_COLLECTION));
+
+  // Only seed if collection is empty
+  if (snapshot.empty) {
+    const batch: Promise<unknown>[] = [];
+    for (const reason of DEFAULT_PENALTY_REASONS) {
+      batch.push(addDoc(collection(db, PENALTY_REASONS_COLLECTION), reason));
+    }
+    await Promise.all(batch);
+  }
+};
+
+export const createPenaltyReason = async (data: {
+  emoji: string;
+  reason: string;
+  points: number;
+}): Promise<string> => {
+  const docRef = await addDoc(collection(db, PENALTY_REASONS_COLLECTION), {
+    emoji: data.emoji,
+    reason: data.reason,
+    points: data.points < 0 ? data.points : -data.points, // Ensure negative
+  });
+  return docRef.id;
+};
+
+export const updatePenaltyReason = async (
+  reasonId: string,
+  data: {
+    emoji?: string;
+    reason?: string;
+    points?: number;
+  }
+): Promise<void> => {
+  const reasonRef = doc(db, PENALTY_REASONS_COLLECTION, reasonId);
+  const updateData: Record<string, unknown> = {};
+
+  if (data.emoji !== undefined) updateData.emoji = data.emoji;
+  if (data.reason !== undefined) updateData.reason = data.reason;
+  if (data.points !== undefined) {
+    updateData.points = data.points < 0 ? data.points : -data.points;
+  }
+
+  await updateDoc(reasonRef, updateData);
+};
+
+export const deletePenaltyReason = async (reasonId: string): Promise<void> => {
+  await deleteDoc(doc(db, PENALTY_REASONS_COLLECTION, reasonId));
 };

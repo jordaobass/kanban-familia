@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useScores } from '@/hooks/useScores';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ActivityTimeline } from './ActivityTimeline';
+import { PenaltyModal } from './PenaltyModal';
 import { getWeekDates, getWeeksOfMonth, getWeekString } from '@/types';
 
 const MONTHS = [
@@ -16,6 +17,7 @@ export function ScoreBoard() {
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [showTimeline, setShowTimeline] = useState(false);
+  const [showPenalty, setShowPenalty] = useState(false);
 
   const weeksInMonth = getWeeksOfMonth(selectedYear, selectedMonth);
   const currentWeekStr = getWeekString(now);
@@ -24,7 +26,7 @@ export function ScoreBoard() {
     return idx >= 0 ? idx : 0;
   });
 
-  const selectedWeek = weeksInMonth[selectedWeekIndex] || weeksInMonth[0];
+  const selectedWeek = weeksInMonth[selectedWeekIndex] || weeksInMonth[0] || currentWeekStr;
   const { scores, loading, setCurrentWeek } = useScores(selectedWeek);
 
   // Update currentWeek when selection changes
@@ -115,13 +117,22 @@ export function ScoreBoard() {
           🏆 Placar da Semana 🏆
         </h2>
         <p className="text-gray-600">Quem completou mais tarefas?</p>
-        <button
-          onClick={() => setShowTimeline(true)}
-          className="mt-3 px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-200 flex items-center gap-2 mx-auto"
-        >
-          <span className="text-lg">📊</span>
-          Ver Timeline
-        </button>
+        <div className="flex gap-3 justify-center mt-3">
+          <button
+            onClick={() => setShowTimeline(true)}
+            className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+          >
+            <span className="text-lg">📊</span>
+            Timeline
+          </button>
+          <button
+            onClick={() => setShowPenalty(true)}
+            className="px-6 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-200 flex items-center gap-2"
+          >
+            <span className="text-lg">⚠️</span>
+            Penalidade
+          </button>
+        </div>
       </div>
 
       {/* Month/Week Selector */}
@@ -253,6 +264,12 @@ export function ScoreBoard() {
         isOpen={showTimeline}
         onClose={() => setShowTimeline(false)}
         weekString={selectedWeek}
+      />
+
+      {/* Penalty Modal */}
+      <PenaltyModal
+        isOpen={showPenalty}
+        onClose={() => setShowPenalty(false)}
       />
     </div>
   );

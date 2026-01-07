@@ -37,8 +37,11 @@ export function ActivityTimeline({ isOpen, onClose, weekString }: ActivityTimeli
 
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Loading state before async subscription
     setLoading(true);
-    const startDate = weekDates.start.toISOString().split('T')[0];
-    const endDate = weekDates.end.toISOString().split('T')[0];
+
+    // Calculate dates inside effect to avoid dependency issues
+    const dates = getWeekDates(weekString);
+    const startDate = dates.start.toISOString().split('T')[0];
+    const endDate = dates.end.toISOString().split('T')[0];
 
     const unsubscribe = subscribeActivities(
       selectedProfile,
@@ -51,7 +54,7 @@ export function ActivityTimeline({ isOpen, onClose, weekString }: ActivityTimeli
     );
 
     return () => unsubscribe();
-  }, [isOpen, selectedProfile, weekString, weekDates.start, weekDates.end]);
+  }, [isOpen, selectedProfile, weekString]);
 
   if (!isOpen) return null;
 
@@ -197,35 +200,46 @@ export function ActivityTimeline({ isOpen, onClose, weekString }: ActivityTimeli
                     {/* Activities */}
                     {dayActivities.length > 0 ? (
                       <div className="ml-6 pl-6 border-l-2 border-gray-200 space-y-3">
-                        {dayActivities.map((activity, idx) => (
-                          <div
-                            key={`${activity.taskId}-${idx}`}
-                            className="bg-gradient-to-r from-gray-50 to-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 animate-fade-in"
-                            style={{
-                              animationDelay: `${idx * 100}ms`,
-                            }}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="text-3xl">{activity.taskEmoji}</span>
-                              <div className="flex-1">
-                                <h4 className="font-medium text-gray-800">
-                                  {activity.taskTitle}
-                                </h4>
-                                <p className="text-sm text-gray-500">
-                                  {formatTime(activity.completedAt)}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <span className="text-lg font-bold" style={{ color: profile?.color }}>
-                                  +{activity.points}
-                                </span>
-                                <p className="text-xs text-gray-500">
-                                  {getRandomMessage()}
-                                </p>
+                        {dayActivities.map((activity, idx) => {
+                          const isPenalty = activity.type === 'penalty' || activity.points < 0;
+
+                          return (
+                            <div
+                              key={`${activity.taskId || 'penalty'}-${idx}`}
+                              className={`
+                                rounded-2xl p-4 shadow-sm border hover:shadow-md transition-all duration-200 animate-fade-in
+                                ${isPenalty
+                                  ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200'
+                                  : 'bg-gradient-to-r from-gray-50 to-white border-gray-100'
+                                }
+                              `}
+                              style={{
+                                animationDelay: `${idx * 100}ms`,
+                              }}
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-3xl">{activity.taskEmoji}</span>
+                                <div className="flex-1">
+                                  <h4 className={`font-medium ${isPenalty ? 'text-red-800' : 'text-gray-800'}`}>
+                                    {activity.taskTitle}
+                                  </h4>
+                                  <p className="text-sm text-gray-500">
+                                    {formatTime(activity.completedAt)}
+                                    {isPenalty && <span className="ml-2 text-red-500">Penalidade</span>}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <span className={`text-lg font-bold ${isPenalty ? 'text-red-600' : ''}`} style={!isPenalty ? { color: profile?.color } : {}}>
+                                    {activity.points > 0 ? '+' : ''}{activity.points}
+                                  </span>
+                                  <p className="text-xs text-gray-500">
+                                    {isPenalty ? 'Ops! 😢' : getRandomMessage()}
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="ml-6 pl-6 border-l-2 border-gray-100">

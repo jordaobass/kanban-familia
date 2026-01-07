@@ -29,15 +29,42 @@ export interface FamilyMember {
   createdAt: Timestamp;
 }
 
-// Daily activity for timeline
+// Activity type for timeline
+export type ActivityType = 'task' | 'penalty';
+
+// Daily activity for timeline (tasks and penalties)
 export interface DailyActivity {
   date: string; // YYYY-MM-DD
-  taskId: string;
+  type: ActivityType;
+  taskId?: string;
   taskTitle: string;
   taskEmoji: string;
-  points: number;
+  points: number; // Positive for tasks, negative for penalties
+  penaltyReason?: string;
   completedAt: Timestamp;
 }
+
+// Penalty reason interface
+export interface PenaltyReason {
+  id?: string;
+  emoji: string;
+  reason: string;
+  points: number; // Negative value
+}
+
+// Default penalty reasons (used to seed Firestore)
+export const DEFAULT_PENALTY_REASONS: PenaltyReason[] = [
+  { emoji: '😤', reason: 'Briga com irmao/irma', points: -2 },
+  { emoji: '🗣️', reason: 'Respondeu mal', points: -2 },
+  { emoji: '😭', reason: 'Birra/Choro excessivo', points: -1 },
+  { emoji: '📱', reason: 'Uso excessivo de telas', points: -2 },
+  { emoji: '🍽️', reason: 'Nao quis comer', points: -1 },
+  { emoji: '🛏️', reason: 'Nao quis dormir', points: -1 },
+  { emoji: '🧹', reason: 'Nao ajudou em casa', points: -1 },
+  { emoji: '📚', reason: 'Nao fez licao', points: -2 },
+  { emoji: '🚫', reason: 'Desobedeceu', points: -2 },
+  { emoji: '💢', reason: 'Outro motivo', points: -1 },
+];
 
 export interface TaskRecurrence {
   type: RecurrenceType;
