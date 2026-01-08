@@ -227,13 +227,21 @@ export const getAllScores = async (): Promise<Score[]> => {
 export const subscribeFamilyMembers = (callback: (members: FamilyMember[]) => void) => {
   const q = query(collection(db, MEMBERS_COLLECTION));
 
-  return onSnapshot(q, (snapshot) => {
-    const members: FamilyMember[] = [];
-    snapshot.forEach((doc) => {
-      members.push({ id: doc.id, ...doc.data() } as FamilyMember);
-    });
-    callback(members);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const members: FamilyMember[] = [];
+      snapshot.forEach((doc) => {
+        members.push({ id: doc.id, ...doc.data() } as FamilyMember);
+      });
+      callback(members);
+    },
+    (error) => {
+      console.error('Error subscribing to family members:', error);
+      // Still call callback with empty array so loading state is cleared
+      callback([]);
+    }
+  );
 };
 
 export const createFamilyMember = async (data: {
